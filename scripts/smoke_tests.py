@@ -72,7 +72,7 @@ def test_task_binding_beats_agent_binding() -> None:
         "--channel", "feishu",
     ])
     assert_eq(result["source"], "task_binding", "task binding should beat agent binding")
-    assert_eq(result["chosen_slot"], "slot_morning", "daily_news should route to slot_morning")
+    assert_eq(result["chosen_slot"], "slot_mimo_tts_2_5", "daily_news should route to its task-bound slot")
 
 
 
