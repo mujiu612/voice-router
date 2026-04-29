@@ -1,6 +1,36 @@
 # voice-router
 
+[English](./README.md) | [中文说明](./README.zh-CN.md)
+
 > A structured voice routing layer for TTS generation, validation, transcoding, and platform delivery.
+
+## 中文简介
+
+`voice-router` 是一个面向路由的 TTS 语音编排层，用来把 **声音选择**、**Provider 生成**、**音频校验**、**转码处理**、**平台发送** 拆成清晰的独立层级。
+
+它解决的是语音工作流里很容易越做越乱的一类问题：
+
+- 不同任务想用不同声音
+- 不同助手需要不同人格化声线
+- 某个 provider 失败时要自动 fallback
+- 不同平台对音频格式和发送方式要求不同
+
+当前 v1 的核心目标很明确：
+
+**文本 → TTS Provider → 音频校验 → Opus 转码 → Feishu 发送**
+
+目前仓库内已经包含：
+
+- 路由配置 `voice_router.json`
+- provider 生成脚本
+- Feishu 发送链路
+- smoke tests / config validator
+- 中英文文档与故障说明
+
+如果你主要看中文，可以直接阅读：
+**[`README.zh-CN.md`](./README.zh-CN.md)**
+
+---
 
 `voice-router` is a routing-oriented skill that separates **voice selection**, **provider generation**, **audio validation**, and **platform delivery** into clear layers.
 
