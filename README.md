@@ -140,26 +140,52 @@ voice-router/
 
 ```mermaid
 flowchart TD
-    A[User text / task intent] --> B[route_voice.py]
-    B --> C[voice_router.json]
+    A([User text / task intent]) --> B[route_voice.py]
 
-    C --> C1[Models\nprovider / voice / retry]
-    C --> C2[Slots\nhuman-facing voice roles]
-    C --> C3[Bindings\ntask -> slot\nagent -> slot]
-    C --> C4[Delivery profiles\nplatform / format / send mode]
+    subgraph CONFIG[Configuration Layer · voice_router.json]
+        direction LR
+        C1[Models\nprovider / voice / retry]
+        C2[Slots\nhuman-facing voice roles]
+        C3[Bindings\ntask -> slot\nagent -> slot]
+        C4[Delivery profiles\nplatform / format / send mode]
+    end
 
-    B --> D[Resolved route]
+    B --> C1
+    B --> C2
+    B --> C3
+    B --> C4
+    C1 --> D[Resolved route]
+    C2 --> D
+    C3 --> D
+    C4 --> D
+
     D --> E[run_voice_pipeline.py]
 
-    E --> F1[Primary model]
-    F1 --> G{Generation ok?}
-    G -- Yes --> H[Audio validation]
-    G -- No --> F2[Fallback models]
-    F2 --> H
+    subgraph EXEC[Execution Layer]
+        direction LR
+        F1[Primary model]
+        G{Generation ok?}
+        F2[Fallback models]
+        H[Audio validation]
+        I[Transcode if needed\nmp3 -> opus]
+        J[deliver_feishu.py\nor other platform delivery]
+    end
 
-    H --> I[Transcode if needed\nmp3 -> opus]
-    I --> J[deliver_feishu.py\nor other platform delivery]
-    J --> K[Final audio delivery]
+    E --> F1 --> G
+    G -- Yes --> H
+    G -- No --> F2 --> H
+    H --> I --> J --> K([Final audio delivery])
+
+    classDef entry fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:1.5px;
+    classDef config fill:#ede9fe,stroke:#7c3aed,color:#1e1b4b,stroke-width:1.5px;
+    classDef script fill:#dcfce7,stroke:#16a34a,color:#052e16,stroke-width:1.5px;
+    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:1.5px;
+    classDef output fill:#fce7f3,stroke:#db2777,color:#500724,stroke-width:1.5px;
+
+    class A,K entry;
+    class C1,C2,C3,C4 config;
+    class B,D,E,F1,F2,H,I,J script;
+    class G decision;
 ```
 
 This is the core idea of `voice-router`: configuration decides **what voice path should be used**, scripts execute **how that path is generated, validated, transcoded, and delivered**.
