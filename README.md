@@ -190,6 +190,29 @@ flowchart TD
 
 This is the core idea of `voice-router`: configuration decides **what voice path should be used**, scripts execute **how that path is generated, validated, transcoded, and delivered**.
 
+### 中文图解
+
+可以把这张图理解成两层：
+
+- **上半层是配置层**：`voice_router.json` 负责定义模型、声音角色、任务绑定、发送配置。
+- **下半层是执行层**：脚本根据路由结果，去完成生成、校验、转码和发送。
+
+实际运行时的顺序大致是：
+
+1. 用户文本或任务意图进入系统
+2. `route_voice.py` 结合配置解析出本次该走哪条声音路径
+3. `run_voice_pipeline.py` 按优先级先尝试主模型
+4. 如果主模型失败，就进入 fallback 模型链
+5. 音频生成成功后，再做校验与必要转码
+6. 最后交给平台发送脚本完成投递
+
+这个结构的好处是：
+
+- **配置和执行分离**，后续更容易维护
+- **fallback 是一等公民**，不是临时补丁
+- **平台差异被显式建模**，不会把发送规则硬写死在单个脚本里
+- **适合逐步扩展** 到更多 provider、更多平台、更多任务角色
+
 ---
 
 ## What is already working in v1
