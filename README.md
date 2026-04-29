@@ -4,49 +4,45 @@
 
 > A structured voice routing layer for TTS generation, validation, transcoding, and platform delivery.
 
+`voice-router` is a routing-oriented voice workflow package that separates **voice selection**, **provider generation**, **audio validation**, **transcoding**, and **platform delivery** into clean, inspectable layers.
+
+It is built for teams and agents that need more than “generate one audio file and send it”.
+
+---
+
 ## 中文简介
 
 `voice-router` 是一个面向路由的 TTS 语音编排层，用来把 **声音选择**、**Provider 生成**、**音频校验**、**转码处理**、**平台发送** 拆成清晰的独立层级。
 
-它解决的是语音工作流里很容易越做越乱的一类问题：
+它主要解决这几类常见问题：
 
 - 不同任务想用不同声音
 - 不同助手需要不同人格化声线
 - 某个 provider 失败时要自动 fallback
 - 不同平台对音频格式和发送方式要求不同
+- 语音流程越长越容易变成“脚本堆”
 
-当前 v1 的核心目标很明确：
+当前 v1 的核心目标非常明确：
 
 **文本 → TTS Provider → 音频校验 → Opus 转码 → Feishu 发送**
 
-目前仓库内已经包含：
-
-- 路由配置 `voice_router.json`
-- provider 生成脚本
-- Feishu 发送链路
-- smoke tests / config validator
-- 中英文文档与故障说明
-
-如果你主要看中文，可以直接阅读：
+如果你主要看中文，建议直接阅读：
 **[`README.zh-CN.md`](./README.zh-CN.md)**
 
 ---
 
-`voice-router` is a routing-oriented skill that separates **voice selection**, **provider generation**, **audio validation**, and **platform delivery** into clear layers.
+## Highlights
 
-It is designed to solve a common problem in voice workflows:
-
-- one task wants one kind of voice
-- another task wants a different tone
-- one assistant should sound different from another
-- one provider may fail and need fallback
-- one platform may require a different output format
-
-Instead of hardcoding those rules into one script, `voice-router` turns them into a configurable system.
+- **Configuration-first routing** via `voice_router.json`
+- **Task-level and agent-level defaults** for voice selection
+- **Explicit fallback chains** across multiple models/providers
+- **Platform-aware delivery** with Feishu-focused output rules
+- **Validation and smoke tests** to reduce config drift
+- **Reference docs** for provider quirks and failure cases
 
 ---
 
-## Why this exists
+## What problem it solves
 
 Most voice workflows start simple and then get messy fast.
 
@@ -59,13 +55,11 @@ You begin with “generate one audio file and send it”, and soon run into prob
 - delivery instability
 - fallback requirements
 
-`voice-router` exists to prevent that sprawl.
-
-It keeps routing logic, provider logic, transcoding logic, and delivery logic separate, so the system stays understandable as it grows.
+Instead of hardcoding all of those rules into one script, `voice-router` turns them into a configurable system.
 
 ---
 
-## What v1 focuses on
+## Current v1 scope
 
 Version 1 is intentionally narrow.
 
@@ -77,10 +71,68 @@ Its goal is to make **one stable production path** real:
 Current v1 priorities:
 
 - stable **Feishu** voice delivery
-- support for **NoizAI** and **MiniMax**
+- support for **NoizAI**, **MiniMax**, **MiMo**, and **xAI** routing entries
 - explicit fallback between models
 - configuration-driven routing
 - clear failure boundaries
+
+---
+
+## Quick start
+
+### 1) Validate the config
+
+```bash
+python3 scripts/validate_config.py --config voice_router.json
+```
+
+### 2) Inspect route resolution
+
+```bash
+python3 scripts/route_voice.py \
+  --config voice_router.json \
+  --task daily_news --agent main --channel feishu
+```
+
+### 3) Run minimal smoke tests
+
+```bash
+python3 scripts/smoke_tests.py
+```
+
+### 4) Run provider integration smoke
+
+```bash
+python3 scripts/provider_integration_smoke.py \
+  --config voice_router.json \
+  --providers noizai minimax \
+  --models model_noiz_default model_minimax_formal
+```
+
+---
+
+## Repository layout
+
+```text
+voice-router/
+├── SKILL.md
+├── README.md
+├── README.zh-CN.md
+├── voice_router.json
+├── scripts/
+│   ├── route_voice.py
+│   ├── run_voice_pipeline.py
+│   ├── generate_*.py
+│   ├── deliver_feishu.py
+│   ├── validate_config.py
+│   └── smoke_tests.py
+└── references/
+    ├── config-schema.md
+    ├── script-contract.md
+    ├── platform-feishu.md
+    ├── provider-*.md
+    └── failure-cases.md
+```
 
 ---
 
