@@ -136,6 +136,36 @@ voice-router/
 
 ---
 
+## Architecture at a glance
+
+```mermaid
+flowchart TD
+    A[User text / task intent] --> B[route_voice.py]
+    B --> C[voice_router.json]
+
+    C --> C1[Models\nprovider / voice / retry]
+    C --> C2[Slots\nhuman-facing voice roles]
+    C --> C3[Bindings\ntask -> slot\nagent -> slot]
+    C --> C4[Delivery profiles\nplatform / format / send mode]
+
+    B --> D[Resolved route]
+    D --> E[run_voice_pipeline.py]
+
+    E --> F1[Primary model]
+    F1 --> G{Generation ok?}
+    G -- Yes --> H[Audio validation]
+    G -- No --> F2[Fallback models]
+    F2 --> H
+
+    H --> I[Transcode if needed\nmp3 -> opus]
+    I --> J[deliver_feishu.py\nor other platform delivery]
+    J --> K[Final audio delivery]
+```
+
+This is the core idea of `voice-router`: configuration decides **what voice path should be used**, scripts execute **how that path is generated, validated, transcoded, and delivered**.
+
+---
+
 ## What is already working in v1
 
 `voice-router v1` has already been implemented and verified end-to-end.
