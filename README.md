@@ -2,69 +2,47 @@
 
 [English](./README.md) | [中文说明](./README.zh-CN.md)
 
-> A structured voice routing layer for TTS generation, validation, transcoding, and platform delivery.
+> A configuration-first voice routing layer for TTS generation, validation, transcoding, and platform delivery.
 
-`voice-router` is a routing-oriented voice workflow package that separates **voice selection**, **provider generation**, **audio validation**, **transcoding**, and **platform delivery** into clean, inspectable layers.
+`voice-router` turns a fragile “generate one file and send it” flow into a structured pipeline.
+It separates **voice selection**, **provider generation**, **audio validation**, **transcoding**, and **delivery** so each layer stays understandable, testable, and replaceable.
 
-It is built for teams and agents that need more than “generate one audio file and send it”.
+## Why this project exists
 
----
+Most voice workflows start small and become messy quickly:
 
-## 中文简介
+- different tasks want different voices
+- different agents need different defaults
+- providers fail and need fallback chains
+- platforms expect different audio formats
+- an API saying `ok` does not guarantee the audio is actually playable
 
-`voice-router` 是一个面向路由的 TTS 语音编排层，用来把 **声音选择**、**Provider 生成**、**音频校验**、**转码处理**、**平台发送** 拆成清晰的独立层级。
-
-它主要解决这几类常见问题：
-
-- 不同任务想用不同声音
-- 不同助手需要不同人格化声线
-- 某个 provider 失败时要自动 fallback
-- 不同平台对音频格式和发送方式要求不同
-- 语音流程越长越容易变成“脚本堆”
-
-当前 v1 的核心目标非常明确：
-
-**文本 → TTS Provider → 音频校验 → Opus 转码 → Feishu 发送**
-
-如果你主要看中文，建议直接阅读：
-**[`README.zh-CN.md`](./README.zh-CN.md)**
-
----
+Instead of hardcoding all of that into one growing script, `voice-router` models the workflow explicitly.
 
 ## Highlights
 
 - **Configuration-first routing** via `voice_router.json`
 - **Task-level and agent-level defaults** for voice selection
-- **Explicit fallback chains** across multiple models/providers
-- **Platform-aware delivery** with Feishu-focused output rules
+- **Explicit fallback chains** across multiple providers and models
+- **Platform-aware delivery rules** with a Feishu-focused v1 path
 - **Validation and smoke tests** to reduce config drift
-- **Reference docs** for provider quirks and failure cases
+- **Reference documentation** for provider quirks and failure cases
 
----
+## Good fit for
 
-## What problem it solves
+`voice-router` is a good fit if you need to:
 
-Most voice workflows start simple and then get messy fast.
+- route different content types to different voices
+- switch providers without rewriting your whole pipeline
+- make fallback behavior explicit and inspectable
+- normalize audio before delivery
+- keep platform-specific delivery logic out of provider scripts
 
-You begin with “generate one audio file and send it”, and soon run into problems like:
-
-- task-specific default voices
-- agent-specific default voices
-- provider switching
-- platform-specific formats
-- delivery instability
-- fallback requirements
-
-Instead of hardcoding all of those rules into one script, `voice-router` turns them into a configurable system.
-
----
-
-## Current v1 scope
+## Current scope
 
 Version 1 is intentionally narrow.
-
-Its goal is not to build a giant voice platform all at once.
-Its goal is to make **one stable production path** real:
+The goal is not to solve every voice workflow at once.
+The goal is to make one practical path reliable:
 
 **Text -> TTS provider -> audio validation -> opus transcoding -> Feishu delivery**
 
@@ -75,8 +53,6 @@ Current v1 priorities:
 - explicit fallback between models
 - configuration-driven routing
 - clear failure boundaries
-
----
 
 ## Quick start
 
@@ -108,33 +84,6 @@ python3 scripts/provider_integration_smoke.py \
   --providers noizai minimax \
   --models model_noiz_default model_minimax_formal
 ```
-
----
-
-## Repository layout
-
-```text
-voice-router/
-├── SKILL.md
-├── README.md
-├── README.zh-CN.md
-├── voice_router.json
-├── scripts/
-│   ├── route_voice.py
-│   ├── run_voice_pipeline.py
-│   ├── generate_*.py
-│   ├── deliver_feishu.py
-│   ├── validate_config.py
-│   └── smoke_tests.py
-└── references/
-    ├── config-schema.md
-    ├── script-contract.md
-    ├── platform-feishu.md
-    ├── provider-*.md
-    └── failure-cases.md
-```
-
----
 
 ## Architecture at a glance
 
@@ -175,49 +124,14 @@ flowchart TD
     G -- Yes --> H
     G -- No --> F2 --> H
     H --> I --> J --> K([Final audio delivery])
-
-    classDef entry fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:1.5px;
-    classDef config fill:#ede9fe,stroke:#7c3aed,color:#1e1b4b,stroke-width:1.5px;
-    classDef script fill:#dcfce7,stroke:#16a34a,color:#052e16,stroke-width:1.5px;
-    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:1.5px;
-    classDef output fill:#fce7f3,stroke:#db2777,color:#500724,stroke-width:1.5px;
-
-    class A,K entry;
-    class C1,C2,C3,C4 config;
-    class B,D,E,F1,F2,H,I,J script;
-    class G decision;
 ```
 
-This is the core idea of `voice-router`: configuration decides **what voice path should be used**, scripts execute **how that path is generated, validated, transcoded, and delivered**.
+The core idea is simple:
 
-### 中文图解
+- configuration decides **what path should be used**
+- scripts decide **how that path is executed**
 
-可以把这张图理解成两层：
-
-- **上半层是配置层**：`voice_router.json` 负责定义模型、声音角色、任务绑定、发送配置。
-- **下半层是执行层**：脚本根据路由结果，去完成生成、校验、转码和发送。
-
-实际运行时的顺序大致是：
-
-1. 用户文本或任务意图进入系统
-2. `route_voice.py` 结合配置解析出本次该走哪条声音路径
-3. `run_voice_pipeline.py` 按优先级先尝试主模型
-4. 如果主模型失败，就进入 fallback 模型链
-5. 音频生成成功后，再做校验与必要转码
-6. 最后交给平台发送脚本完成投递
-
-这个结构的好处是：
-
-- **配置和执行分离**，后续更容易维护
-- **fallback 是一等公民**，不是临时补丁
-- **平台差异被显式建模**，不会把发送规则硬写死在单个脚本里
-- **适合逐步扩展** 到更多 provider、更多平台、更多任务角色
-
----
-
-## What is already working in v1
-
-`voice-router v1` is implemented as a working reference workflow.
+## What v1 already includes
 
 ### Implemented
 
@@ -225,327 +139,141 @@ This is the core idea of `voice-router`: configuration decides **what voice path
 - NoizAI generation
 - MiniMax generation
 - `mp3 -> opus` transcoding
-- Feishu delivery path
+- Feishu delivery planning path
 - model fallback execution
 - structured provider notes and failure references
 
 ### Validated during development
 
-- audio generation succeeds on supported provider paths
+- supported provider paths can generate audio
 - opus outputs can be probed and validated
 - Feishu delivery behavior has been exercised in the target workflow
 - playback confirmation remains the preferred final verification step in real deployments
 
-This repository is intended to document and ship a practical v1 workflow rather than a design draft.
-
----
-
-## Core design
-
-`voice-router` uses a four-layer structure.
-
-### 1. Models
-The provider capability layer.
-
-Defines things like:
-
-- provider
-- model name
-- voice id / reference mode
-- timeout / retry
-- tags / status
-
-Examples:
-
-- `model_noiz_default`
-- `model_minimax_default`
-
----
-
-### 2. Slots
-The human-facing voice role layer.
-
-A slot is not a provider detail.
-It is a business-facing voice role.
-
-Examples:
-
-- main assistant voice
-- morning briefing voice
-- alert voice
-- art assistant voice
-
-Each slot can define:
-
-- primary model
-- fallback models
-- persona
-- display name
-
----
-
-### 3. Bindings
-The default mapping layer.
-
-Bindings connect:
-
-- tasks -> slots
-- agents -> slots
-
-Examples:
-
-- `morning_brief -> slot_morning`
-- `main -> slot_main`
-
----
-
-### 4. Delivery
-The platform delivery layer.
-
-Defines things like:
-
-- target platform
-- preferred output format
-- send mode
-- output directory
-- platform capability differences
-
-In v1, the main target is:
-
-- `feishu`
-- `preferred_format = opus`
-- `send_mode = audio_file`
-
----
-
-## Routing order
-
-By default, routing resolves in this order:
-
-1. `explicit_slot`
-2. `explicit_model`
-3. `task_binding`
-4. `agent_binding`
-5. default fallback
-
-If a slot is selected, the execution path becomes:
-
-- use `primary_model`
-- if it fails, continue through `fallback_models`
-
-This makes fallback a first-class part of the routing system instead of an afterthought.
-
----
-
-## Credentials and environment
-
-For long-term use, provider keys should be injected through the OpenClaw runtime environment, not written into `voice_router.json`, shell scripts, or Markdown notes.
-
-Recommended variables:
-
-- `MINIMAX_API_KEY`
-- `NOIZ_API_KEY`
-- `XAI_API_KEY`
-
-Recommended persistent location on OpenClaw hosts:
-
-- `~/.openclaw/.env`
-
-Why this is the default:
-
-- works for Gateway-launched cron and isolated runs
-- avoids binding secrets to one skill only
-- easier to migrate across machines
-- avoids accidental git commits and config leakage
-
-Current script behavior:
-
-- first read process env
-- then fall back to `~/.openclaw/.env`
-- NoizAI additionally keeps compatibility with `~/.noiz_api_key`
-
-macOS note:
-
-When OpenClaw runs as a LaunchAgent, shell-only env vars are often not inherited by background jobs. Prefer `~/.openclaw/.env` for stable cron behavior.
-
-Path note:
-
-Do not hardcode Linux-only workspace paths like `/home/...` in provider scripts. Resolve paths from the current skill/workspace on the running host.
-
-## Current provider strategy
-
-### NoizAI
-In v1, NoizAI is used in a stability-first way.
-
-Operational note:
-
-- provider key should come from `NOIZ_API_KEY`
-- local file `~/.noiz_api_key` is compatibility fallback only, not the preferred long-term path
-- the wrapper calls NoizAI directly so secrets do not need to be passed through subprocess CLI arguments
-
-Current strategy:
-
-- default to reference-audio mode
-- do not assume old human-readable voice names are valid `voice_id`s
-- allow remote reference audio only from a small HTTPS allowlist, otherwise prefer local controlled files
-
-Reason:
-
-- legacy values like `zf_xiaoni` may fail with `Voice not found`
-- some failures return JSON payloads instead of valid audio
-
-So for v1, NoizAI is configured to prioritize a stable generation path over aggressive voice-id management.
-
-### MiniMax
-MiniMax is connected through a minimal HTTP TTS path.
-
-The default configuration uses:
-
-- `speech-2.8-hd`
-
-Provider-side model availability can vary by account tier, entitlement, region, or future API changes, so deployments should treat this as a recommended default rather than a universal guarantee.
-
-This keeps the provider path simple and reliable while leaving room for environment-specific overrides.
-
----
-
-## Current Feishu strategy
-
-Feishu is the core delivery target in v1.
-
-Current policy:
-
-- do not default to direct mp3 send
-- transcode to `opus`
-- use `audio_file` mode
-- do not treat API success alone as final success
-- treat successful user-side playback as the actual closure condition
-
-That choice reflects the expected behavior of the target delivery workflow and is designed to favor playback reliability over optimistic API-only success checks.
-
----
-
-## Repository structure
+## Repository layout
 
 ```text
 voice-router/
 ├── README.md
+├── README.zh-CN.md
 ├── SKILL.md
 ├── voice_router.json
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── scripts/
+│   ├── route_voice.py
+│   ├── run_voice_pipeline.py
+│   ├── generate_*.py
+│   ├── deliver_feishu.py
+│   ├── validate_config.py
+│   └── smoke_tests.py
 ├── references/
 │   ├── config-schema.md
-│   ├── failure-cases.md
+│   ├── script-contract.md
 │   ├── platform-feishu.md
-│   ├── provider-minimax.md
-│   └── provider-noizai.md
-└── scripts/
-    ├── route_voice.py
-    ├── generate_noizai.py
-    ├── generate_minimax.py
-    ├── transcode_to_opus.sh
-    ├── deliver_feishu.py
-    └── run_voice_pipeline.py
+│   ├── provider-*.md
+│   └── failure-cases.md
+└── .github/
+    ├── ISSUE_TEMPLATE/
+    └── pull_request_template.md
 ```
-
----
 
 ## Key files
 
-| File | Role |
+| File | Purpose |
 |---|---|
-| `voice_router.json` | Single source of truth for models, slots, bindings, routing, delivery, and validation |
-| `SKILL.md` | Internal skill behavior, workflow rules, and design principles |
-| `README.md` | Human-facing project introduction |
+| `voice_router.json` | Source of truth for models, slots, bindings, routing, delivery, and validation |
 | `scripts/route_voice.py` | Route resolution only |
-| `scripts/generate_noizai.py` | NoizAI generation only |
-| `scripts/generate_minimax.py` | MiniMax generation only |
-| `scripts/transcode_to_opus.sh` | Transcoding + ffprobe validation |
+| `scripts/run_voice_pipeline.py` | Minimal orchestration path for v1 |
+| `scripts/generate_noizai.py` | NoizAI generation wrapper |
+| `scripts/generate_minimax.py` | MiniMax generation wrapper |
+| `scripts/transcode_to_opus.sh` | Transcoding and probe validation |
 | `scripts/deliver_feishu.py` | Feishu delivery-plan preparation |
-| `scripts/run_voice_pipeline.py` | Minimal v1 pipeline runner |
+| `references/` | Provider notes, schema docs, and failure cases |
+| `SKILL.md` | Agent-facing workflow and maintenance conventions |
 
----
+## Provider and delivery strategy
 
-## Scope boundary
+### NoizAI
 
-### v1 does handle
+For v1, NoizAI favors a stable generation path over aggressive voice-id management:
 
-- voice routing
-- provider selection
-- model fallback
-- audio validation
-- opus transcoding
-- stable Feishu delivery path
+- prefer reference-audio mode by default
+- do not assume legacy human-readable names are valid `voice_id` values
+- treat non-audio error payloads as generation failures early
 
-### v1 does not try to handle yet
+### MiniMax
 
-- multi-character script splitting
-- emotional auto-selection of voices
-- DAW-level audio post-production
-- full multi-platform delivery expansion
-- UI-based configuration management
+MiniMax is connected through a minimal HTTP TTS path.
+The default configuration uses:
 
-This is deliberate.
+- `speech-2.8-hd`
 
-v1 is meant to be stable, understandable, and extensible — not overloaded.
+Provider-side model availability can vary by account tier, entitlement, region, or future API changes, so treat that as a recommended default rather than a universal guarantee.
 
----
+### Feishu
+
+Feishu is the main delivery target in v1.
+Current policy:
+
+- do not default to direct mp3 delivery
+- transcode to `opus`
+- use `audio_file` mode
+- do not treat API success alone as final success
+- prefer receiving-side playback confirmation as the real closure signal
 
 ## Design principles
 
-The system follows a few strict principles:
+- **Configuration first**: put default behavior in `voice_router.json`, not scattered across scripts
+- **Clear separation of concerns**: routing, generation, validation, transcoding, and delivery should stay distinct
+- **Fallback must be real**: failure should advance to the next eligible model
+- **Validation is required**: a returned file is not automatically a good file
+- **Delivery should be platform-aware**: format and send mode belong to delivery profiles
 
-- **Configuration first**: defaults belong in `voice_router.json`, not in random scripts
-- **Layer separation**: routing and delivery should never be mixed together
-- **Fallback is real**: failures should move to the next model, not just stop silently
-- **Validation matters**: a returned `ok` is not enough
-- **User playback is the final check**: especially on Feishu
+## Limitations
 
----
+v1 deliberately does **not** try to cover everything.
+Out of scope for now:
 
-## Current conclusion
-
-`voice-router v1` is already in the “working system” stage.
-
-It is no longer just:
-
-- a concept
-- a schema
-- a prototype
-
-It is now:
-
-- structured
-- tested
-- routed
-- transcodable
-- fallback-capable
-- Feishu-deliverable
-
----
+- multi-character script splitting
+- emotion-driven automatic voice selection
+- DAW-grade audio post-processing
+- full multi-platform delivery expansion
+- GUI-based configuration management
 
 ## Roadmap
 
-Suggested next versions:
-
 ### v1.1
-- cleaner entrypoints
-- smoother invocation UX
-- better operator-facing summaries
+- cleaner entry points
+- smoother invocation ergonomics
+- better operational summaries
 
 ### v1.2
 - more providers
-- finer fallback strategies
-- stronger diagnostics and error reporting
+- finer-grained fallback policies
+- stronger diagnostics and failure reporting
 
 ### v1.3
-- multi-platform delivery expansion
-- platform-specific delivery profiles beyond Feishu
+- more delivery platforms
+- non-Feishu delivery profiles implemented in practice
 
----
+## Documentation
 
-## Status
+- [中文说明](./README.zh-CN.md)
+- [Configuration schema](./references/config-schema.md)
+- [Script contract](./references/script-contract.md)
+- [Feishu platform notes](./references/platform-feishu.md)
+- [NoizAI provider notes](./references/provider-noizai.md)
+- [MiniMax provider notes](./references/provider-minimax.md)
+- [Failure cases](./references/failure-cases.md)
 
-**Current state: v1 locked.**
+## Contributing and project policies
 
-The core structure should remain stable.
-Future work should iterate on top of v1, not rebuild it from scratch.
+- See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution workflow
+- See [SECURITY.md](./SECURITY.md) for reporting vulnerabilities
+- See [CHANGELOG.md](./CHANGELOG.md) for release history
+
+## License
+
+[MIT](./LICENSE)

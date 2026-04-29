@@ -1,20 +1,13 @@
 # voice-router
 
-> 一个把语音选择、TTS 生成、音频校验、转码和平台投递拆开的结构化语音路由层。
+[English](./README.md) | [中文说明](./README.zh-CN.md)
+
+> 一个以配置为中心的语音路由层，用来组织 TTS 生成、音频校验、转码与平台投递。
 
 `voice-router` 不是单一的 TTS 脚本，也不是单一的平台发送器。
+它把一条完整语音链路里的关键决策拆开管理：**声音选择**、**provider 生成**、**音频校验**、**格式转码**、**平台投递**。
 
-它的核心目标，是把一条完整语音链路里的几个关键决策拆开管理：
-
-- 这次该用哪个声音
-- 该由哪个 provider 来生成
-- 生成结果是否真的可用
-- 是否需要转码
-- 最终该按哪个平台规则发出去
-
-它用配置化的方式，替代把这些规则硬编码进一个脚本里的做法。
-
----
+这样做的目的，是把原本容易越写越乱的“脚本堆”，变成一个可理解、可维护、可扩展的工作流。
 
 ## 为什么要做这个
 
@@ -22,48 +15,128 @@
 
 > 生成一个音频，然后发出去。
 
-但只要需求一复杂，问题就会立刻冒出来：
+但只要需求一复杂，问题就会立刻出现：
 
 - 不同任务想用不同声音
-- 不同助手想有不同默认声线
+- 不同助手需要不同默认声线
 - provider 会失效，需要 fallback
-- 平台之间格式要求不一样
-- 返回 `ok` 不代表用户真的能播放
+- 平台之间的音频格式要求不一样
+- API 返回 `ok`，不代表用户侧真的能播放
 
-`voice-router` 就是为了解决这种失控增长。
+`voice-router` 的目标，就是把这些规则显式建模，而不是把它们继续硬编码进一个越来越大的脚本里。
 
-它把：
+## 亮点
 
-- 路由逻辑
-- provider 逻辑
-- 转码逻辑
-- 投递逻辑
+- **配置优先**：通过 `voice_router.json` 驱动路由
+- **任务级 / 助手级默认声音**：声音规则可显式表达
+- **显式 fallback 链**：跨 provider / model 的兜底策略可检查、可维护
+- **平台感知的投递层**：v1 重点围绕 Feishu 稳定链路设计
+- **校验与 smoke tests**：减少配置漂移和回归风险
+- **参考文档完整**：保留 provider 差异与失败案例
 
-明确拆开，让系统在增长之后仍然可理解、可维护、可扩展。
+## 适合什么场景
 
----
+如果你需要下面这些能力，`voice-router` 会比较合适：
 
-## v1 这一版聚焦什么
+- 让不同内容类型走不同声音
+- 更换 provider 时不想重写整条链路
+- 把 fallback 逻辑做成明确规则，而不是临时补丁
+- 在投递前统一做音频校验和转码
+- 把平台差异从 provider 脚本里剥离出来
 
-v1 故意不贪大。
+## 当前范围
 
-它不是一上来就做成“全平台语音系统”，而是先把一条**稳定可用的生产链路**做实：
+v1 是刻意收敛的。
+它不是一上来就做“全平台语音系统”，而是先把一条实际可用的链路做扎实：
 
 **文本 -> TTS provider -> 音频校验 -> opus 转码 -> Feishu 投递**
 
 当前 v1 的重点：
 
-- 稳定的 **Feishu** 语音链路
-- 支持 **NoizAI** 和 **MiniMax**
+- 稳定的 **Feishu** 语音投递
+- 支持 **NoizAI**、**MiniMax**、**MiMo**、**xAI** 路由入口
 - 支持显式 fallback
 - 以配置驱动路由
-- 有明确的失败边界
+- 有清晰的失败边界
 
----
+## 快速开始
 
-## v1 已经做到什么程度
+### 1）校验配置
 
-`voice-router v1` 现在已经是一套可工作的参考工作流。
+```bash
+python3 scripts/validate_config.py --config voice_router.json
+```
+
+### 2）查看路由解析结果
+
+```bash
+python3 scripts/route_voice.py \
+  --config voice_router.json \
+  --task daily_news --agent main --channel feishu
+```
+
+### 3）跑最小 smoke tests
+
+```bash
+python3 scripts/smoke_tests.py
+```
+
+### 4）跑 provider integration smoke
+
+```bash
+python3 scripts/provider_integration_smoke.py \
+  --config voice_router.json \
+  --providers noizai minimax \
+  --models model_noiz_default model_minimax_formal
+```
+
+## 架构概览
+
+```mermaid
+flowchart TD
+    A([用户文本 / 任务意图]) --> B[route_voice.py]
+
+    subgraph CONFIG[配置层 · voice_router.json]
+        direction LR
+        C1[Models\nprovider / voice / retry]
+        C2[Slots\n面向业务的声音角色]
+        C3[Bindings\ntask -> slot\nagent -> slot]
+        C4[Delivery profiles\nplatform / format / send mode]
+    end
+
+    B --> C1
+    B --> C2
+    B --> C3
+    B --> C4
+    C1 --> D[Resolved route]
+    C2 --> D
+    C3 --> D
+    C4 --> D
+
+    D --> E[run_voice_pipeline.py]
+
+    subgraph EXEC[执行层]
+        direction LR
+        F1[Primary model]
+        G{Generation ok?}
+        F2[Fallback models]
+        H[Audio validation]
+        I[Transcode if needed\nmp3 -> opus]
+        J[deliver_feishu.py\nor other platform delivery]
+    end
+
+    E --> F1 --> G
+    G -- Yes --> H
+    G -- No --> F2 --> H
+    H --> I --> J --> K([最终音频投递])
+```
+
+这个项目的核心思想很简单：
+
+- **配置层** 决定这次应该走哪条声音路径
+- **脚本层** 负责把这条路径真正执行出来
+
+## v1 已经包含什么
 
 ### 已实现
 
@@ -71,164 +144,16 @@ v1 故意不贪大。
 - NoizAI 生成
 - MiniMax 生成
 - `mp3 -> opus` 转码
-- Feishu 投递链路
+- Feishu 投递计划路径
 - model fallback 执行
 - provider 说明文档与失败案例沉淀
 
 ### 开发阶段已验证
 
-- 在受支持的 provider 路径上可以成功生成音频
-- opus 输出可被 probe 与校验
+- 受支持的 provider 路径可以生成音频
+- opus 输出可以被 probe 与校验
 - Feishu 投递行为已在目标工作流中验证过
 - 在真实部署里，仍建议以“接收端可正常播放”作为最终确认
-
-所以这版更适合作为一个可运行的 v1 参考实现，而不是停留在设计稿层面。
-
----
-
-## 核心设计
-
-`voice-router` 采用四层结构。
-
-### 1. Models
-底层语音能力层。
-
-负责定义：
-
-- provider
-- model 名称
-- voice id / 参考音频模式
-- timeout / retry
-- 标签 / 状态
-
-例如：
-
-- `model_noiz_default`
-- `model_minimax_default`
-
----
-
-### 2. Slots
-对外的人话层，也就是“声音角色位”。
-
-slot 不是底层 provider 细节，而是业务层能理解的声音角色。
-
-例如：
-
-- 主助手声音
-- 早安日报声音
-- 提醒通知声音
-- 艺术助手声音
-
-每个 slot 可以定义：
-
-- primary model
-- fallback models
-- persona
-- display name
-
----
-
-### 3. Bindings
-默认绑定层。
-
-负责把：
-
-- task -> slot
-- agent -> slot
-
-映射起来。
-
-例如：
-
-- `morning_brief -> slot_morning`
-- `main -> slot_main`
-
----
-
-### 4. Delivery
-平台投递层。
-
-负责定义：
-
-- 目标平台
-- 输出格式
-- send mode
-- 输出目录
-- 平台能力差异
-
-在 v1 里，主目标平台是：
-
-- `feishu`
-- `preferred_format = opus`
-- `send_mode = audio_file`
-
----
-
-## 当前路由顺序
-
-默认顺序如下：
-
-1. `explicit_slot`
-2. `explicit_model`
-3. `task_binding`
-4. `agent_binding`
-5. 默认兜底
-
-如果命中的是 slot，则执行逻辑为：
-
-- 先走 `primary_model`
-- 失败后按 `fallback_models` 继续尝试
-
-这意味着 fallback 不是补丁，而是路由系统的一部分。
-
----
-
-## 当前 provider 策略
-
-### NoizAI
-v1 里，NoizAI 走的是“稳优先”策略。
-
-当前做法：
-
-- 默认走参考音频模式
-- 不假设旧的人类可读 voice 名一定等于真实 `voice_id`
-
-原因：
-
-- 像 `zf_xiaoni` 这样的旧值，在当前接法下可能直接报 `Voice not found`
-- 有些失败返回的是 JSON 报错，不是真音频
-
-所以在 v1 中，NoizAI 以稳定生成为第一目标，而不是先把 voice-id 管理做复杂。
-
-### MiniMax
-MiniMax 当前走的是最小 HTTP TTS 路径。
-
-默认配置使用：
-
-- `speech-2.8-hd`
-
-但 provider 侧模型可用性可能会受到账号等级、权限、区域或后续 API 变化影响，因此这里更适合作为推荐默认值，而不是对所有环境都成立的保证。
-
-这样既能保持 provider 链路简单稳定，也为不同部署环境留出了覆盖空间。
-
----
-
-## 当前 Feishu 策略
-
-Feishu 是 v1 的核心投递目标。
-
-当前策略：
-
-- 不默认直发 mp3
-- 统一转成 `opus`
-- 用 `audio_file` 模式发送
-- 不把 API 返回成功当成最终成功
-- 把“用户侧能正常播放”当成最终闭环
-
-这套选择更偏向目标投递工作流里的播放稳定性，而不是仅凭 API 返回成功就乐观判断已经完成。
-
----
 
 ## 仓库结构
 
@@ -238,108 +163,91 @@ voice-router/
 ├── README.zh-CN.md
 ├── SKILL.md
 ├── voice_router.json
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── scripts/
+│   ├── route_voice.py
+│   ├── run_voice_pipeline.py
+│   ├── generate_*.py
+│   ├── deliver_feishu.py
+│   ├── validate_config.py
+│   └── smoke_tests.py
 ├── references/
 │   ├── config-schema.md
-│   ├── failure-cases.md
+│   ├── script-contract.md
 │   ├── platform-feishu.md
-│   ├── provider-minimax.md
-│   └── provider-noizai.md
-└── scripts/
-    ├── route_voice.py
-    ├── generate_noizai.py
-    ├── generate_minimax.py
-    ├── transcode_to_opus.sh
-    ├── deliver_feishu.py
-    └── run_voice_pipeline.py
+│   ├── provider-*.md
+│   └── failure-cases.md
+└── .github/
+    ├── ISSUE_TEMPLATE/
+    └── pull_request_template.md
 ```
 
----
-
-## 关键文件说明
+## 关键文件
 
 | 文件 | 作用 |
 |---|---|
-| `voice_router.json` | 单一事实来源，定义 models / slots / bindings / routing / delivery / validation |
-| `SKILL.md` | 技能行为、工作流规则、设计原则 |
-| `README.md` | GitHub 风格英文项目介绍 |
-| `README.zh-CN.md` | GitHub 风格中文项目介绍 |
+| `voice_router.json` | 单一事实来源，定义 models、slots、bindings、routing、delivery、validation |
 | `scripts/route_voice.py` | 只负责路由解析 |
-| `scripts/generate_noizai.py` | 只负责 NoizAI 生成 |
-| `scripts/generate_minimax.py` | 只负责 MiniMax 生成 |
-| `scripts/transcode_to_opus.sh` | 负责转码与 ffprobe 校验 |
-| `scripts/deliver_feishu.py` | 负责 Feishu 投递计划准备 |
 | `scripts/run_voice_pipeline.py` | v1 的最小主流程串联器 |
+| `scripts/generate_noizai.py` | NoizAI 生成包装层 |
+| `scripts/generate_minimax.py` | MiniMax 生成包装层 |
+| `scripts/transcode_to_opus.sh` | 转码与 probe 校验 |
+| `scripts/deliver_feishu.py` | Feishu 投递计划准备 |
+| `references/` | provider 说明、schema 文档、失败案例 |
+| `SKILL.md` | 面向 agent 的工作流约定与维护规则 |
 
----
+## Provider 与投递策略
 
-## 能力边界
+### NoizAI
 
-### v1 已覆盖
+在 v1 里，NoizAI 以“稳定生成优先”为主：
 
-- 语音路由
-- provider 选择
-- model fallback
-- 音频校验
-- opus 转码
-- 稳定的 Feishu 投递路径
+- 默认优先参考音频模式
+- 不假设历史的人类可读名称一定等于真实 `voice_id`
+- 发现非音频错误 payload 时尽早失败，不把错误留给后续转码阶段
 
-### v1 暂不处理
+### MiniMax
 
-- 多角色剧本拆分
-- 按情绪自动选 voice
-- DAW 级音频后期
-- 完整多平台投递扩展
-- UI 化配置管理
+MiniMax 当前走最小 HTTP TTS 路径。
+默认配置使用：
 
-这是刻意为之。
+- `speech-2.8-hd`
 
-v1 的目标不是功能堆满，而是：
+但 provider 侧模型可用性可能会受到账号等级、权限、区域或后续 API 变化影响，因此这里更适合作为推荐默认值，而不是对所有环境都成立的保证。
 
-- 稳
-- 清楚
-- 可解释
-- 可扩展
+### Feishu
 
----
+Feishu 是 v1 的主投递目标。
+当前策略：
+
+- 不默认直发 mp3
+- 统一转成 `opus`
+- 使用 `audio_file` 模式发送
+- 不把 API 返回成功当成最终成功
+- 更建议以接收端可播放作为真正闭环信号
 
 ## 设计原则
 
-整个系统遵守几条硬规则：
+- **配置优先**：默认行为写进 `voice_router.json`，不要散落到脚本里
+- **分层明确**：路由、生成、校验、转码、投递尽量分离
+- **fallback 要真执行**：失败后必须切到下一个可用模型
+- **校验不能省**：返回了文件，不等于返回了可用文件
+- **投递必须平台感知**：格式和 send mode 属于 delivery profile 的职责
 
-- **配置优先**：默认规则写进 `voice_router.json`，不要散落在脚本里
-- **分层明确**：路由和投递不能混写
-- **fallback 要真执行**：失败后要切下一模型，不是静默结束
-- **校验不能省**：一个 `ok` 不等于真的成功
-- **用户可播放才算闭环**：尤其是 Feishu 场景
+## 当前限制
 
----
+v1 有意不覆盖所有场景。
+当前暂不处理：
 
-## 当前结论
-
-`voice-router v1` 已经进入“可工作的系统”阶段。
-
-它已经不再只是：
-
-- 一个概念
-- 一份 schema
-- 一个半成品原型
-
-而是一个：
-
-- 有结构
-- 有验证路径
-- 可路由
-- 可转码
-- 可 fallback
-- 可投递到 Feishu
-
-的稳定 v1。
-
----
+- 多角色剧本拆分
+- 按情绪自动选 voice
+- DAW 级音频后期处理
+- 完整多平台投递扩展
+- 图形化配置管理
 
 ## Roadmap
-
-后续如果继续迭代，建议按版本推进：
 
 ### v1.1
 - 更干净的入口
@@ -353,13 +261,24 @@ v1 的目标不是功能堆满，而是：
 
 ### v1.3
 - 多平台投递扩展
-- 除 Feishu 之外的平台 profile 落地
+- 非 Feishu 平台 profile 的实际落地
 
----
+## 文档导航
 
-## Status
+- [English README](./README.md)
+- [配置 schema](./references/config-schema.md)
+- [脚本契约](./references/script-contract.md)
+- [Feishu 平台说明](./references/platform-feishu.md)
+- [NoizAI provider 说明](./references/provider-noizai.md)
+- [MiniMax provider 说明](./references/provider-minimax.md)
+- [失败案例](./references/failure-cases.md)
 
-**当前状态：v1 已锁定。**
+## 贡献与项目规则
 
-主结构不应再被随手打散。
-后续演进应建立在 v1 之上，而不是重新从零拼一次。
+- 贡献方式见 [CONTRIBUTING.md](./CONTRIBUTING.md)
+- 安全问题提报见 [SECURITY.md](./SECURITY.md)
+- 版本变更记录见 [CHANGELOG.md](./CHANGELOG.md)
+
+## License
+
+[MIT](./LICENSE)
