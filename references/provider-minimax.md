@@ -144,7 +144,7 @@ MiniMax 只负责“生成音频”，不负责：
   - `your current token plan not support model, speech-2.8-hd`
 
 #### Root Cause
-- 当前账号 / token plan 不支持请求的 model
+- 当前部署所使用的账号 / token plan 不支持请求的 model
 - 这不是 route 逻辑错误，也不是脚本结构错误
 
 #### Failure Layer
@@ -273,7 +273,7 @@ MiniMax 只负责“生成音频”，不负责：
 
 ### Recommendation 4
 
-如果做 integration smoke，MiniMax 用例要允许“外部 plan 不支持”这种失败存在，但要把它标注成外部约束，不算 skill 设计缺陷。
+如果做 integration smoke，MiniMax 用例要允许“外部 plan 不支持”这类失败存在，但要把它标注成外部约束，不算 skill 设计缺陷。
 
 ---
 

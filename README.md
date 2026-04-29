@@ -217,7 +217,7 @@ This is the core idea of `voice-router`: configuration decides **what voice path
 
 ## What is already working in v1
 
-`voice-router v1` has already been implemented and verified end-to-end.
+`voice-router v1` is implemented as a working reference workflow.
 
 ### Implemented
 
@@ -229,15 +229,14 @@ This is the core idea of `voice-router`: configuration decides **what voice path
 - model fallback execution
 - structured provider notes and failure references
 
-### Verified in real use
+### Validated during development
 
-- audio files were actually generated
-- opus output was actually probed
-- Feishu delivery was actually tested
-- playback was actually confirmed on the receiving side
+- audio generation succeeds on supported provider paths
+- opus outputs can be probed and validated
+- Feishu delivery behavior has been exercised in the target workflow
+- playback confirmation remains the preferred final verification step in real deployments
 
-This is not a design draft anymore.
-It is a working v1.
+This repository is intended to document and ship a practical v1 workflow rather than a design draft.
 
 ---
 
@@ -400,15 +399,13 @@ So for v1, NoizAI is configured to prioritize a stable generation path over aggr
 ### MiniMax
 MiniMax is connected through a minimal HTTP TTS path.
 
-Real testing showed that the currently available token plan supports:
+The default configuration uses:
 
 - `speech-2.8-hd`
 
-So in v1, the stable MiniMax default is:
+Provider-side model availability can vary by account tier, entitlement, region, or future API changes, so deployments should treat this as a recommended default rather than a universal guarantee.
 
-- `model = speech-2.8-hd`
-
-This keeps the provider path simple and reliable.
+This keeps the provider path simple and reliable while leaving room for environment-specific overrides.
 
 ---
 
@@ -424,7 +421,7 @@ Current policy:
 - do not treat API success alone as final success
 - treat successful user-side playback as the actual closure condition
 
-That choice was made from real delivery behavior, not just from interface assumptions.
+That choice reflects the expected behavior of the target delivery workflow and is designed to favor playback reliability over optimistic API-only success checks.
 
 ---
 
