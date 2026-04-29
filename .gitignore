@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Generated audio / temp outputs
+tmp/
+*.mp3
+*.wav
+*.ogg
+*.opus
+*.duration
+
+# Local secrets / env
+.env
+.env.*
+*.local
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/

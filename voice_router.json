@@ -1,0 +1,297 @@
+{
+  "version": 1,
+  "meta": {
+    "name": "voice-router",
+    "display_name": "语音路由器",
+    "description": "跨平台语音生成与发送路由配置。第一阶段以 Feishu 稳定语音发送为核心。",
+    "default_language": "zh-CN"
+  },
+  "models": {
+    "model_noiz_default": {
+      "enabled": true,
+      "provider": "noizai",
+      "display_name": "NoizAI 悦悦新闻候选声线",
+      "voice": "b4775100",
+      "reference_mode": "voice_id",
+      "lang": "cmn",
+      "timeout_sec": 60,
+      "retry": 1,
+      "tags": [
+        "default",
+        "cn",
+        "broadcast",
+        "yueyue"
+      ]
+    },
+    "model_minimax_default": {
+      "enabled": true,
+      "provider": "minimax",
+      "display_name": "MiniMax 默认播报女声",
+      "model": "speech-2.8-hd",
+      "voice": "female-shaonv",
+      "timeout_sec": 60,
+      "retry": 1,
+      "tags": [
+        "fallback",
+        "cn",
+        "broadcast"
+      ]
+    },
+    "model_noiz_warm": {
+      "enabled": false,
+      "provider": "noizai",
+      "display_name": "NoizAI 温和参考音频声线",
+      "voice": null,
+      "reference_mode": "default_ref_audio",
+      "lang": "en-us",
+      "timeout_sec": 60,
+      "retry": 1,
+      "tags": [
+        "warm",
+        "soft",
+        "ref-audio"
+      ]
+    },
+    "model_minimax_formal": {
+      "enabled": true,
+      "provider": "minimax",
+      "display_name": "MiniMax 正式播报女声",
+      "model": "speech-2.8-hd",
+      "voice": "presenter_female",
+      "timeout_sec": 60,
+      "retry": 1,
+      "tags": [
+        "formal",
+        "broadcast",
+        "female",
+        "news"
+      ]
+    },
+    "model_mimo_tts_2_5_jasmine": {
+      "enabled": true,
+      "provider": "mimo",
+      "display_name": "MiMo 茉莉知性女声",
+      "model": "mimo-v2.5-tts",
+      "voice": "茉莉",
+      "output_format": "wav",
+      "timeout_sec": 60,
+      "retry": 1,
+      "tags": [
+        "mimo",
+        "jasmine",
+        "cn",
+        "female",
+        "natural"
+      ]
+    },
+    "model_xai_default": {
+      "enabled": true,
+      "provider": "xai",
+      "display_name": "xAI 默认播报声线",
+      "voice": "rex",
+      "lang": "zh",
+      "codec": "mp3",
+      "sample_rate": 24000,
+      "bit_rate": 128000,
+      "timeout_sec": 60,
+      "retry": 1,
+      "tags": [
+        "xai",
+        "broadcast",
+        "fallback",
+        "zh"
+      ]
+    }
+  },
+  "slots": {
+    "slot_main": {
+      "enabled": true,
+      "display_name": "主助手声音",
+      "persona": "稳定、日常、通用",
+      "primary_model": "model_noiz_default",
+      "fallback_models": [
+        "model_minimax_default"
+      ]
+    },
+    "slot_morning": {
+      "enabled": true,
+      "display_name": "新闻播报女声",
+      "persona": "正式、清晰、适合新闻播报",
+      "primary_model": "model_minimax_formal",
+      "fallback_models": [
+        "model_xai_default",
+        "model_minimax_default",
+        "model_noiz_default"
+      ]
+    },
+    "slot_alert": {
+      "enabled": true,
+      "display_name": "提醒通知声音",
+      "persona": "直接、清晰、正式",
+      "primary_model": "model_minimax_formal",
+      "fallback_models": [
+        "model_minimax_default",
+        "model_noiz_default"
+      ]
+    },
+    "slot_art": {
+      "enabled": true,
+      "display_name": "艺术助手声音",
+      "persona": "更柔和、有区分度",
+      "primary_model": "model_noiz_default",
+      "fallback_models": [
+        "model_minimax_default",
+        "model_xai_default"
+      ]
+    },
+    "slot_mimo_jasmine": {
+      "enabled": true,
+      "display_name": "MiMo 茉莉知性女声",
+      "persona": "自然、知性、适合日常中文播报",
+      "primary_model": "model_mimo_tts_2_5_jasmine",
+      "fallback_models": [
+        "model_minimax_default",
+        "model_noiz_default"
+      ]
+    },
+    "slot_mimo_tts_2_5": {
+      "enabled": true,
+      "display_name": "MiMo TTS 2.5",
+      "persona": "稳定、清晰、适合中文播报",
+      "primary_model": "model_mimo_tts_2_5_jasmine",
+      "fallback_models": [
+        "model_minimax_formal",
+        "model_minimax_default",
+        "model_noiz_default"
+      ]
+    },
+    "slot_backup": {
+      "enabled": true,
+      "display_name": "备用声音",
+      "persona": "全局兜底",
+      "primary_model": "model_xai_default",
+      "fallback_models": [
+        "model_minimax_default"
+      ]
+    }
+  },
+  "bindings": {
+    "task_bindings": {
+      "default": "slot_main",
+      "morning_brief": "slot_morning",
+      "morning_report": "slot_morning",
+      "daily_news": "slot_mimo_tts_2_5",
+      "alert": "slot_alert",
+      "warning": "slot_alert",
+      "art": "slot_art"
+    },
+    "agent_bindings": {
+      "main": "slot_main",
+      "ai-assistant": "slot_main",
+      "art-shrimp": "slot_art",
+      "capital-shrimp": "slot_alert"
+    }
+  },
+  "routing": {
+    "default_selection_order": [
+      "explicit_slot",
+      "explicit_model",
+      "task_binding",
+      "agent_binding",
+      "task_default"
+    ],
+    "allow_model_fallback": true,
+    "stop_on_empty_audio": true,
+    "stop_on_probe_failure": true,
+    "allow_direct_mp3_send": false
+  },
+  "delivery": {
+    "default_target_mode": "current_channel",
+    "allow_cross_platform_override": true,
+    "fallback_channel": "feishu",
+    "profiles": {
+      "feishu": {
+        "enabled": true,
+        "display_name": "飞书",
+        "preferred_format": "opus",
+        "send_mode": "audio_file",
+        "allow_direct_mp3_send": false,
+        "supports_native_voice": false,
+        "supports_duration_display": true,
+        "output_dir": "./tmp/output",
+        "filename_prefix": "feishu-voice"
+      },
+      "telegram": {
+        "enabled": false,
+        "display_name": "Telegram",
+        "preferred_format": "ogg",
+        "send_mode": "voice",
+        "supports_native_voice": true,
+        "supports_duration_display": true,
+        "output_dir": "./tmp/output",
+        "filename_prefix": "telegram-voice"
+      },
+      "qq": {
+        "enabled": false,
+        "display_name": "QQ",
+        "preferred_format": "amr",
+        "send_mode": "voice",
+        "supports_native_voice": true,
+        "supports_duration_display": true,
+        "output_dir": "./tmp/output",
+        "filename_prefix": "qq-voice"
+      }
+    }
+  },
+  "guidance": {
+    "show_on_first_use": true,
+    "suggest_on_ambiguous_intent": true,
+    "prefer_human_terms": true,
+    "explain_before_persistent_change": true,
+    "human_terms": {
+      "model": "语音模型",
+      "slot": "声音插槽",
+      "task_binding": "任务默认声音",
+      "agent_binding": "助手默认声音",
+      "delivery": "发送方式"
+    }
+  },
+  "intent_examples": {
+    "static": [
+      {
+        "user_phrase": "以后早安日报用轻快一点的声音",
+        "intent": "update_task_binding",
+        "task": "morning_brief"
+      },
+      {
+        "user_phrase": "这次先用 MiniMax",
+        "intent": "temporary_model_override",
+        "model": "model_minimax_default"
+      },
+      {
+        "user_phrase": "把主助手声音换掉",
+        "intent": "update_agent_binding",
+        "agent": "main"
+      }
+    ]
+  },
+  "evolution": {
+    "enable_dynamic_learning": true,
+    "promotion_threshold": 2,
+    "remind_on_related_settings": true,
+    "max_promotion_reminders_per_session": 1,
+    "archive_after_promotion": true,
+    "related_setting_domains": [
+      "voice_settings",
+      "task_voice_settings",
+      "agent_voice_settings",
+      "delivery_settings"
+    ]
+  },
+  "validation": {
+    "require_nonempty_audio": true,
+    "require_duration_probe": true,
+    "require_final_send_ok": true,
+    "prefer_user_confirm_for_platform_delivery_success": true
+  }
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "prompt": "以后 daily_news 默认用一个更正式的女声，但这次先别改配置，先临时切一下。",
+    "expected": "识别为一次性临时覆盖，不应持久化修改；应说明命中的 slot/model 及本次仅临时生效。"
+  },
+  {
+    "id": 2,
+    "prompt": "Feishu 里发给我听，别发 mp3，走稳定链路。如果失败，告诉我卡在哪层。",
+    "expected": "优先按 Feishu 稳定链路处理，避免直接 mp3；失败时明确说明卡在路由、生成、校验或发送哪一层。"
+  },
+  {
+    "id": 3,
+    "prompt": "main 这个 agent 默认声音是什么？如果 morning_brief 也有绑定，最后谁优先？",
+    "expected": "应清楚解释 agent binding 与 task binding 的优先级，并用人话说明默认声音解析顺序。"
+  }
+]
