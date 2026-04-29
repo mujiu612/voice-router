@@ -41,10 +41,17 @@ if head.startswith(b'{') or head.startswith(b'['):
     raise SystemExit(1)
 PY
 
-ffmpeg -y -i "$INPUT" -c:a libopus -b:a 32k -vbr on -application voip "$OUTPUT" >/tmp/voice_router_ffmpeg.log 2>&1 || {
-  LOG=$(python3 - <<'PY'
+FFMPEG_LOG=$(mktemp -t voice_router_ffmpeg.XXXXXX.log)
+cleanup() {
+  rm -f "$FFMPEG_LOG"
+}
+trap cleanup EXIT
+
+ffmpeg -y -i "$INPUT" -c:a libopus -b:a 32k -vbr on -application voip "$OUTPUT" >"$FFMPEG_LOG" 2>&1 || {
+  LOG=$(python3 - "$FFMPEG_LOG" <<'PY'
 from pathlib import Path
-p = Path('/tmp/voice_router_ffmpeg.log')
+import sys
+p = Path(sys.argv[1])
 print(p.read_text(encoding='utf-8', errors='replace')[-4000:])
 PY
 )

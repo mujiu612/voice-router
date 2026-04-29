@@ -382,11 +382,13 @@ Operational note:
 
 - provider key should come from `NOIZ_API_KEY`
 - local file `~/.noiz_api_key` is compatibility fallback only, not the preferred long-term path
+- the wrapper calls NoizAI directly so secrets do not need to be passed through subprocess CLI arguments
 
 Current strategy:
 
 - default to reference-audio mode
 - do not assume old human-readable voice names are valid `voice_id`s
+- allow remote reference audio only from a small HTTPS allowlist, otherwise prefer local controlled files
 
 Reason:
 

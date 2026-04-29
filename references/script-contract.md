@@ -237,6 +237,12 @@ CLI 参数：
 2. `~/.openclaw/.env`
 3. `~/.noiz_api_key`
 
+### Security Rules
+
+- NoizAI key 不应通过子进程命令行参数传递
+- wrapper 应直接发起 HTTP 请求，或用环境变量 / 受控通道传递凭据
+- `--reference-audio` 若使用远程 URL，必须走受限 `https` allowlist，并带下载大小 / 类型限制
+
 ### Success Output Required Fields
 
 - `provider`

@@ -30,18 +30,14 @@ NoizAI 在当前 voice-router 里属于 **底层 TTS provider**，负责把文�
 当前 wrapper：
 - `scripts/generate_noizai.py`
 
-它不是直接重写一套 NoizAI API 调用，而是复用 workspace 里已有的 NoizAI TTS 实现：
-
-候选路径：
-1. `skills/noizai-skills/skills/tts/scripts/noiz_tts.py`
-2. `skills/noizai-skills/scripts/noiz_tts.py`
+它现在直接调用 NoizAI HTTP 接口，而不是把 API key 通过子进程命令行再转交给外部脚本。
 
 ### Why
 
 这样做的好处：
-- 减少重复实现
-- 复用现有可工作的 NoizAI 接入链路
-- voice-router 专注于路由和统一包装，不去重复发明 provider 细节
+- 避免凭据出现在进程命令行参数里
+- 降低对 workspace 外部实现路径的隐式依赖
+- voice-router 自己就能定义更明确的安全边界（下载限制、输出校验、超时）
 
 ---
 
@@ -131,9 +127,16 @@ wrapper 会根据语言选择默认参考音频 URL。
 - 中文：`DEFAULT_REF_AUDIO_URL_CN`
 - 英文：`DEFAULT_REF_AUDIO_URL_EN`
 
+### Security Guardrails
+
+- 仅允许 `https://` URL
+- 仅允许少量 allowlist host（当前内置默认资源域名）
+- 有下载大小上限
+- 会做基础 content-type / 扩展名校验
+
 ### Risk
 
-这意味着 reference-audio 模式依赖：
+这意味着 reference-audio 模式仍然依赖：
 - 外部 URL 可访问
 - 下载成功
 - 远端资源未失效
@@ -143,6 +146,7 @@ wrapper 会根据语言选择默认参考音频 URL。
 如果某个参考音频是长期核心资产，后续更稳的做法是：
 - 不依赖公网临时 URL
 - 改为本地受控文件路径
+- 关键链路优先使用固定 voice id
 
 ---
 
